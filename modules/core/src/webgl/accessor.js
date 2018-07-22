@@ -27,15 +27,19 @@ export default class Accessor {
    * @param {GLuint} stride=0 - supports strided arrays
    * @param {GLuint} offset=0 - supports strided arrays
    */
-  constructor(...optsList) {
-    optsList.forEach(opts => this._update(opts));
+  constructor(...accessors) {
+    accessors.forEach(opts => this._update(opts));
   }
 
   // Combine with other accessors
-  getOptions(...optsList) {
+  merge(...accessors) {
     const combinedOpts = Object.assign({}, Accessor.DEFAULTS, this);
-    optsList.forEach(opts => this._update(opts, combinedOpts));
+    accessors.forEach(options => this._update(options, combinedOpts));
     return combinedOpts;
+  }
+
+  getOptions(...accessors) {
+    return this.merge(...accessors);
   }
 
   update(opts) {

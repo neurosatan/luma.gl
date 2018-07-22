@@ -112,7 +112,7 @@ export default class Program extends Resource {
     isInstanced = false,
     instanceCount = 0,
 
-    vertexArray = null, // VertexArray.getDefaultArray(this.gl),
+    vertexArray = null,
     transformFeedback,
     framebuffer,
     uniforms = {},
@@ -132,7 +132,7 @@ export default class Program extends Resource {
     // TODO - move vertex array binding and transform feedback binding to withParameters?
     assert(vertexArray);
 
-    vertexArray.bind(() => {
+    vertexArray.bindForUse(vertexCount, () => {
 
       this.setUniforms(uniforms, samplers);
 

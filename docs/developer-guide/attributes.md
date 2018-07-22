@@ -154,7 +154,7 @@ At the start of shader execution, these indices (or 'locations') are matched wit
 
 ## Remarks
 
-> There are a suprising number of API complications and "gotchas" when using WebGL VertexArrayObjects. The various issues and version differences described here are handled by the luma.gl `VertexArray` API.
+There are a suprising number of API complications and "gotchas" when using WebGL VertexArrayObjects. The various issues and version differences described here are handled by the luma.gl `VertexArray` API.
 
 * Constant attributes: In raw WebGL, constant values are stored on the WebGL context, not the `VertexArrayObject`. Also these "global" values are reset every time a vertex attribute is enabled (set to a buffer). luma.gl transparently works around this by updating the constants on the WebGLRenderingContext every time a `VertexArray` is bound.
 * Constant attributes: Attribute location 0 cannot be set to a constant (i.e. cannot be disabled) in desktop OpenGL and in some desktop browsers (notably desktop Safari) this limitation also affects WebGL. In these cases, luma.gl transparently works around this issue by creating a buffer with the constant value repeated.
