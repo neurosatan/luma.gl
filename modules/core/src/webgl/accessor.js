@@ -1,10 +1,12 @@
-const GL_FLOAT = 0x1406;
+import GL from '../constants';
+import {getTypedArrayFromGLType} from '../webgl-utils/typed-array-utils';
+import assert from '../utils/assert';
 
 export default class Accessor {
 
   static get DEFAULTS() {
     return {
-      type: GL_FLOAT,
+      type: GL.FLOAT,
       size: 1,
       offset: 0,
       stride: 0,
@@ -31,6 +33,22 @@ export default class Accessor {
     accessors.forEach(opts => this._update(opts));
   }
 
+  // ACCESSORS
+
+  get BYTES_PER_ELEMENT() {
+    assert(this.type);
+    const ArrayType = getTypedArrayFromGLType(this.type);
+    return ArrayType.BYTES_PER_ELEMENT;
+  }
+
+  get BYTES_PER_VERTEX() {
+    assert(this.type && this.size);
+    const ArrayType = getTypedArrayFromGLType(this.type);
+    return ArrayType.BYTES_PER_ELEMENT * this.size;
+  }
+
+  // MODIFIERS
+
   // Combine with other accessors
   merge(...accessors) {
     const combinedOpts = Object.assign({}, Accessor.DEFAULTS, this);
@@ -47,10 +65,15 @@ export default class Accessor {
     return this;
   }
 
+  // PRIVATE
+
   /* eslint-disable complexity */
   _update(opts = {}, target = this) {
     if (opts.type !== undefined) {
       target.type = opts.type;
+      if (opts.type === GL.INT || opts.type === GL.UINT) {
+        target.integer = true;
+      }
     }
     if (opts.size !== undefined) {
       target.size = opts.size;

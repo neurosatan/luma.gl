@@ -10,15 +10,16 @@ const DEBUG_DATA_LENGTH = 10;
 
 export default class Buffer extends Resource {
 
+  // Signature: `new Buffer(gl, {data: new Float32Array(...)})`
+  // Signature: `new Buffer(gl, new Float32Array(...))`
   constructor(gl, props = {}) {
     super(gl, props);
+    this.stubRemovedMethods('Buffer', 'v6.0', ['layout', 'setLayout', 'getIndexedParameter']);
 
     // Supports signature `new Buffer(gl, new Float32Array(...)`
     if (ArrayBuffer.isView(props)) {
       props = {data: props};
     }
-
-    this.stubRemovedMethods('Buffer', 'v6.0', ['layout', 'setLayout', 'getIndexedParameter']);
 
     // In WebGL1, need to make sure we use GL.ELEMENT_ARRAY_BUFFER when initializing element buffers
     // otherwise buffer type will lock to generic (non-element) buffer
@@ -28,34 +29,14 @@ export default class Buffer extends Resource {
     Object.seal(this);
   }
 
-  // finalize: inherited from Resource.
-
-  get data() {
-    log.removed('Buffer.data', 'N/A', 'v6.0');
+  // returns number of elements in the buffer (assuming that the full buffer is used)
+  getElementCount(accessor = this.accessor) {
+    return Math.round(this.byteLength / accessor.BYTES_PER_ELEMENT);
   }
 
-  get bytes() {
-    log.deprecated('Buffer.bytes', 'Buffer.byteLength', 'v6.1');
-    return this.byteLength;
-  }
-
-  // returns number of elements in the buffer
-  // TODO - should this method not account for component count (i.e. VEC2 etc)?
-  getElementCount() {
-    const ArrayType = getTypedArrayFromGLType(this.accessor.type || GL.FLOAT, {clamped: false});
-    return this.bytes / ArrayType.BYTES_PER_ELEMENT;
-  }
-
-  // Stores the accessor of data with the buffer, makes it easy to e.g. set it as an attribute later
-  // {accessor,type,size = 1,offset = 0,stride = 0,normalized = false,integer = false,instanced = 0}
-  setAccessor(opts) {
-    this.accessor = opts;
-    return this;
-  }
-
-  updateAccessor(opts) {
-    this.accessor.update(opts);
-    return this;
+  // returns number of vertices in the buffer (assuming that the full buffer is used)
+  getVertexCount(accessor = this.accessor) {
+    return Math.round(this.byteLength / accessor.BYTES_PER_VERTEX);
   }
 
   // Creates and initializes the buffer object's data store.
@@ -71,9 +52,23 @@ export default class Buffer extends Resource {
     return this;
   }
 
+  // Stores the accessor of data with the buffer, makes it easy to e.g. set it as an attribute later
+  // {accessor,type,size = 1,offset = 0,stride = 0,normalized = false,integer = false,instanced = 0}
+  setAccessor(opts) {
+    this.accessor = opts;
+    return this;
+  }
+
+  updateAccessor(opts) {
+    this.accessor.update(opts);
+    return this;
+  }
+
   // Allocate a bigger GPU buffer (if the current buffer is not big enough).
-  // Reallocating clears the buffer
-  // returns: true, data was cleared, false buffer was big enough, data is intact
+  // If a reallocation is triggered it clears the buffer
+  // Returns:
+  //  `true`: buffer was reallocated, data was cleared
+  //  `false`: buffer was big enough, data is intact
   setByteLength(byteLength) {
     if (byteLength > this.byteLength) {
       // In WebGL2, use GL.COPY_WRITE_BUFFER to avoid locking the buffer type
@@ -212,6 +207,17 @@ export default class Buffer extends Resource {
       this.gl.bindBuffer(target, null);
     }
     return this;
+  }
+
+  // DEPRECATED/REMOVED METHODS
+
+  get data() {
+    log.removed('Buffer.data', 'N/A', 'v6.0');
+  }
+
+  get bytes() {
+    log.deprecated('Buffer.bytes', 'Buffer.byteLength', 'v6.1');
+    return this.byteLength;
   }
 
   // PROTECTED METHODS (INTENDED FOR USE BY OTHER FRAMEWORK CODE ONLY)

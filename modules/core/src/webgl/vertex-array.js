@@ -19,8 +19,6 @@ import {log, formatValue, assert} from '../utils';
 /* eslint-disable camelcase */
 const OES_vertex_array_object = 'OES_vertex_array_object';
 
-const GL_ELEMENT_ARRAY_BUFFER = 0x8893;
-
 const ERR_ELEMENTS = 'elements must be GL.ELEMENT_ARRAY_BUFFER';
 const ERR_ATTRIBUTE_TYPE = 'VertexArray: attributes must be Buffer or typed array constant';
 
@@ -125,15 +123,20 @@ export default class VertexArray extends Resource {
     this.unused = [];
 
     // Auto detects draw params
-    this.drawParams = {
-      isInstanced: false,
-      // indexing is autodetected - buffer with target gl.ELEMENT_ARRAY_BUFFER
-      // index type is saved for drawElement calls
-      isIndexed: false,
-      indexType: null
-    };
+    this.drawParams = null;
 
     return this;
+  }
+
+  // Automatically called if buffers changed through VertexArray API
+  clearDrawParams() {
+    this.drawParams = null;
+  }
+
+  getDrawParams(vertexCount) {
+    this.drawParams = this.drawParams || this._updateDrawParams();
+    this._updateAttributeZeroBuffer(vertexCount || this.drawParams.vertexCount);
+    return this.drawParams;
   }
 
   // Set (bind) an array or map of vertex array buffers, either in numbered or named locations.
@@ -173,7 +176,7 @@ export default class VertexArray extends Resource {
   // Set (bind) an elements buffer, for indexed rendering.
   // Must be a Buffer bound to GL.ELEMENT_ARRAY_BUFFER. Constants not supported
   setElements(elementBuffer = null, opts = {}) {
-    assert(!elementBuffer || elementBuffer.target === GL_ELEMENT_ARRAY_BUFFER, ERR_ELEMENTS);
+    assert(!elementBuffer || elementBuffer.target === GL.ELEMENT_ARRAY_BUFFER, ERR_ELEMENTS);
 
     this.elements = elementBuffer;
 
@@ -181,16 +184,7 @@ export default class VertexArray extends Resource {
       this._setElementBuffer();
     }
 
-    // Auto-deduce isIndexed draw param
-    this.drawParams.isIndexed = Boolean(elementBuffer);
-    if (elementBuffer) {
-      const options = elementBuffer.accessor.merge(opts);
-      this.drawParams.indexType = options.type;
-      // TODO - autodeduce number of indices
-      // this.drawParams.indexCount = elementBuffer.getElementCount();
-    } else {
-      delete this.drawParams.indexType;
-    }
+    this.clearDrawParams();
 
     return this;
   }
@@ -222,17 +216,12 @@ export default class VertexArray extends Resource {
     this.accessors[location] = accessor;
     this.infos[location] = {location, name, accessor};
 
-    const {size, type, divisor} = accessor;
+    const {size, type} = accessor;
     assert(Number.isFinite(size) && Number.isFinite(type));
 
     if (this.hasVertexArrays) {
       this._setBuffer(location, buffer, accessor);
     }
-
-    // Auto deduce isInstanced drawParam
-    const isInstanced = divisor > 0;
-    this.drawParams.isInstanced = this.drawParams.isInstanced || isInstanced;
-    // this.drawParams.bufferLength[] = 
 
     return this;
   }
@@ -257,16 +246,16 @@ export default class VertexArray extends Resource {
 
     this.bind(() => {
       this._setConstant(location, arrayValue);
-
       // To use the constant value, disable reading from arrays
       this.gl.disableVertexAttribArray(location);
-
       // Reset instanced divisor (not strictly needed)
       this.gl.vertexAttribDivisor(location, 0);
     });
 
     // Save the value for debugging
     this.values[location] = arrayValue;
+
+    this.clearDrawParams();
 
     return this;
   }
@@ -307,6 +296,62 @@ export default class VertexArray extends Resource {
       return location;
     }
     return -1;
+  }
+
+  // Walks the buffers and updates draw parameters
+  _updateDrawParams() {
+    const drawParams = {
+      isIndexed: false,
+      isInstanced: false,
+      indexCount: Infinity,
+      vertexCount: Infinity,
+      instanceCount: Infinity,
+      indexType: null // GL.UNSIGNED_SHORT
+      // drawMode = GL.TRIANGLES,
+      // offset = 0,
+      // start,
+      // end,
+    };
+
+    for (const location in this.values) {
+      const value = this.values[location];
+      const accessor = this.accessors[location];
+
+      // Check if instanced (whether buffer or constant)
+      const {divisor} = accessor;
+      const isInstanced = divisor > 0;
+      drawParams.isInstanced = drawParams.isInstanced || isInstanced;
+
+      if (value instanceof Buffer) {
+        const buffer = value;
+
+        if (buffer.target === this.gl.ELEMENT_ARRAY_BUFFER) {
+
+          // indexing is autodetected - buffer with target gl.ELEMENT_ARRAY_BUFFER
+          // index type is saved for drawElement calls
+          drawParams.elementCount = buffer.getElementCount(accessor);
+          drawParams.isIndexed = true;
+          drawParams.indexType = accessor.type;
+
+        } else if (isInstanced) {
+
+          // instance attribute
+          const instanceCount = buffer.getVertexCount(accessor);
+          drawParams.instanceCount = Math.min(drawParams.instanceCount, instanceCount);
+
+        } else {
+
+          // normal attribute
+          const vertexCount = buffer.getVertexCount(accessor);
+          drawParams.vertexCount = Math.min(drawParams.vertexCount, vertexCount);
+
+        }
+
+      }
+
+    }
+
+    return drawParams;
   }
 
   _updateAttributeZeroBuffer(length = 4) {
@@ -362,9 +407,9 @@ export default class VertexArray extends Resource {
   }
 
   _setElementBuffer() {
-    // The GL_ELEMENT_ARRAY_BUFFER_BINDING is stored on the VertexArray...
+    // The GL.ELEMENT_ARRAY_BUFFER_BINDING is stored on the VertexArray...
     this.bind(() => {
-      this.gl.bindBuffer(GL_ELEMENT_ARRAY_BUFFER, this.elements ? this.elements.handle : null);
+      this.gl.bindBuffer(GL.ELEMENT_ARRAY_BUFFER, this.elements ? this.elements.handle : null);
     });
   }
 

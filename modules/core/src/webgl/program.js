@@ -151,7 +151,7 @@ export default class Program extends Resource {
           if (isIndexed && isInstanced) {
             this.gl.drawElementsInstanced(drawMode, vertexCount, indexType, offset, instanceCount);
           } else if (isIndexed && isWebGL2(this.gl) && !isNaN(start) && !isNaN(end)) {
-            this.gl.drawElementsRange(drawMode, start, end, vertexCount, indexType, offset);
+            this.gl.drawRangeElements(drawMode, start, end, vertexCount, indexType, offset);
           } else if (isIndexed) {
             this.gl.drawElements(drawMode, vertexCount, indexType, offset);
           } else if (isInstanced) {
